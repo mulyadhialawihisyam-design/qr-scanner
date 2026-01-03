@@ -3,18 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>QR Scanner</title>
+  <title>QR Code Scanner</title>
 
-  <!-- Library QR -->
+  <!-- QR Scanner Library -->
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
   <style>
     :root {
-      --bg: #0f172a;
-      --card: #020617;
-      --text: #e5e7eb;
+      --bg-main: #020617;
+      --bg-card: #020617ee;
+      --text-main: #e5e7eb;
+      --text-muted: #94a3b8;
       --accent: #22c55e;
-      --danger: #ef4444;
+      --error: #ef4444;
     }
 
     * {
@@ -25,62 +26,62 @@
     body {
       margin: 0;
       min-height: 100vh;
-      background: linear-gradient(135deg, #020617, #0f172a);
-      color: var(--text);
+      background: linear-gradient(145deg, #020617, #0f172a);
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 16px;
+      color: var(--text-main);
     }
 
     .card {
       width: 100%;
       max-width: 420px;
-      background: rgba(2, 6, 23, 0.9);
-      border-radius: 16px;
+      background: var(--bg-card);
+      border-radius: 18px;
       padding: 20px;
-      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+      box-shadow: 0 25px 50px rgba(0,0,0,0.6);
     }
 
     h1 {
       text-align: center;
-      margin-bottom: 8px;
       font-size: 1.4rem;
+      margin-bottom: 6px;
     }
 
-    p {
+    .subtitle {
       text-align: center;
-      font-size: 0.9rem;
-      opacity: 0.85;
+      font-size: 0.85rem;
+      color: var(--text-muted);
       margin-bottom: 16px;
     }
 
     #reader {
       width: 100%;
-      border-radius: 12px;
+      border-radius: 14px;
       overflow: hidden;
     }
 
     .status {
-      margin-top: 12px;
+      margin-top: 14px;
       text-align: center;
       font-size: 0.9rem;
-      opacity: 0.85;
+      color: var(--text-muted);
     }
 
-    .success {
+    .status.success {
       color: var(--accent);
     }
 
-    .error {
-      color: var(--danger);
+    .status.error {
+      color: var(--error);
     }
 
     .footer {
-      margin-top: 16px;
+      margin-top: 18px;
       text-align: center;
       font-size: 0.75rem;
-      opacity: 0.6;
+      color: var(--text-muted);
     }
   </style>
 </head>
@@ -88,71 +89,77 @@
 
   <div class="card">
     <h1>QR Code Scanner</h1>
-    <p>Arahkan kamera ke QR Code</p>
+    <div class="subtitle">Arahkan kamera belakang ke QR Code</div>
 
     <div id="reader"></div>
 
     <div id="status" class="status">
-      Menunggu kamera...
+      Mengaktifkan kamera...
     </div>
 
     <div class="footer">
-      Berjalan langsung di browser
+      Tidak perlu aplikasi tambahan
     </div>
   </div>
 
   <script>
     const statusEl = document.getElementById("status");
+    const qrRegionId = "reader";
+    const html5QrCode = new Html5Qrcode(qrRegionId);
 
-    function isValidUrl(url) {
+    function isValidUrl(text) {
       try {
-        new URL(url);
+        new URL(text);
         return true;
       } catch {
         return false;
       }
     }
 
-    const html5QrCode = new Html5Qrcode("reader");
+    function startScanner(cameraConfig) {
+      html5QrCode.start(
+        cameraConfig,
+        {
+          fps: 10,
+          qrbox: { width: 260, height: 260 }
+        },
+        (decodedText) => {
+          html5QrCode.stop();
+          statusEl.textContent = "QR berhasil dipindai";
+          statusEl.className = "status success";
 
-    Html5Qrcode.getCameras()
-      .then(cameras => {
+          if (isValidUrl(decodedText)) {
+            setTimeout(() => {
+              window.location.href = decodedText;
+            }, 600);
+          } else {
+            statusEl.textContent = "QR bukan URL yang valid";
+            statusEl.className = "status error";
+          }
+        },
+        () => {}
+      ).catch(() => {
+        fallbackCamera();
+      });
+    }
+
+    function fallbackCamera() {
+      Html5Qrcode.getCameras().then(cameras => {
         if (!cameras || cameras.length === 0) {
           statusEl.textContent = "Kamera tidak ditemukan";
           statusEl.className = "status error";
           return;
         }
 
-        const cameraId = cameras[0].id;
-
-        html5QrCode.start(
-          cameraId,
-          {
-            fps: 10,
-            qrbox: { width: 250, height: 250 }
-          },
-          (decodedText) => {
-            html5QrCode.stop();
-
-            statusEl.textContent = "QR terdeteksi...";
-            statusEl.className = "status success";
-
-            if (isValidUrl(decodedText)) {
-              setTimeout(() => {
-                window.location.href = decodedText;
-              }, 500);
-            } else {
-              statusEl.textContent = "QR bukan URL valid";
-              statusEl.className = "status error";
-            }
-          },
-          () => {}
-        );
-      })
-      .catch(err => {
+        startScanner(cameras[0].id);
+      }).catch(() => {
         statusEl.textContent = "Izin kamera ditolak";
         statusEl.className = "status error";
       });
+    }
+
+    // START: paksa kamera belakang
+    startScanner({ facingMode: "environment" });
   </script>
 
 </body>
